@@ -1,0 +1,57 @@
+version: "3.7"
+
+configs:
+  prometheus:
+    file: config/prometheus.yml
+
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.12.0
+    command:
+      - "--web.enable-lifecycle"
+      - "--config.file=/etc/prometheus/config/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--storage.tsdb.retention.time=45d"
+    ports:
+      - 9090:9090
+    volumes:
+      - ./data/prometheus:/prometheus
+      - ./config:/etc/prometheus/config:ro
+
+  alertmanager:
+    image: prom/alertmanager:v0.18.0
+    command:
+      - "--config.file=/etc/alertmanager/config/alertmanager.yml"
+      - "--storage.path=/alertmanager/data"
+    hostname: prometheus.it.wm.edu
+    ports:
+      - 9093:9093
+    volumes:
+      - ./config:/etc/alertmanager/config:ro
+      - ./data/alertmanager:/alertmanager
+
+  grafana:
+    image: grafana/grafana:6.4.0
+    ports:
+      - 3000:3000
+    environment:
+      GF_METRICS_ENABLED: "true"
+      GF_EXPLORE_ENABLED: "true"
+      GF_INSTALL_PLUGINS: grafana-clock-panel,fatcloud-windrose-panel,grafana-piechart-panel
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter
+    command: --path.rootfs=/host
+    ports:
+      - 9100:9100
+    # network_mode: host
+    # pid: host
+    volumes:
+      - /:/host:ro,rslave
+

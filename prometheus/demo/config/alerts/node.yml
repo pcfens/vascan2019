@@ -1,0 +1,107 @@
+groups:
+- name: node_recording
+  rules:
+  - record: instance:node_cpus:count
+    expr: count(node_cpu_seconds_total{mode="idle"}) without (cpu,mode)
+
+- name: node_alerts
+  rules:
+  - alert: InstanceDown
+    expr: up{job=~"node|aws-nodes"} == 0
+    for: 5m
+    labels:
+      severity: critical
+      notification: page
+    annotations:
+      description: '{{ $labels.instance }} of job {{ $labels.job }} has been down
+        for more than 5 minutes.'
+      summary: Instance {{ $labels.instance }} down
+
+  - alert: HighLoadAverage
+    expr: node_load1{alerts_tier="normal"}/instance:node_cpus:count > 8 and node_load5/instance:node_cpus:count > 5 and node_load15/instance:node_cpus:count > 3
+    for: 5m
+    labels:
+      severity: warning
+      resource: cpu
+    annotations:
+      description: '{{ $labels.instance }} has a high load average'
+      summary: '{{ $labels.instance }} has a high CPU load average that is
+        CPU count adjusted'
+
+  - alert: HighLoadAverage
+    expr: node_load1{alerts_tier="normal"} > 20 and node_load5 > 15 and node_load15 > 10
+    for: 10m
+    labels:
+      severity: critical
+      notification: page
+      resource: cpu
+    annotations:
+      description: '{{ $labels.instance }} has a critically high load average'
+      summary: '{{ $labels.instance }} has a critically high CPU load average that is not
+        CPU count adjusted'
+
+
+  - alert: FSUsed
+    # Alert when more than 95% of the disk is used and there are less than 150GB free
+    expr: (1 - (node_filesystem_avail_bytes{device!~"files.campus.wm.edu:/users/.*"} / node_filesystem_size_bytes)) > 0.95 and on(instance,device) node_filesystem_avail_bytes < 150e9
+    for: 5m
+    labels:
+      filesystem: '{{ $labels.mountpoint }}'
+      severity: critical
+      notification: page
+      resource: storage
+    annotations:
+      description: '{{ $labels.mountpoint }} on {{ $labels.instance }} has less than
+        5% free space.'
+      summary: '{{ $labels.instance }} mount {{ $labels.mountpoint }} usage greater
+        than 95% and less than 150GB free (currently {{ $value }})'
+
+  - alert: FSUsed
+    # Alert when more than 90% of the disk is used and there are less than 200GB free
+    expr: (1 - (node_filesystem_avail_bytes{device!~"files.campus.wm.edu:/users/.*"} / node_filesystem_size_bytes)) > 0.9 and on(instance,device) node_filesystem_avail_bytes < 200e9
+    for: 5m
+    labels:
+      filesystem: '{{ $labels.mountpoint }}'
+      severity: warning
+      resource: storage
+    annotations:
+      description: '{{ $labels.mountpoint }} on {{ $labels.instance }} has less than
+        10% free space.'
+      summary: '{{ $labels.instance }} mount {{ $labels.mountpoint }} usage greater
+        than 90% and less than 200GB free (currently {{ $value }})'
+
+  - alert: FilesystemToFillIn12Hours
+    expr: predict_linear(node_filesystem_free_bytes{mountpoint!="/opt/scratch",mountpoint!="/import"}[8h],12 * 3600) < 0
+    for: 5m
+    labels:
+      filesystem: '{{ $labels.mountpoint }}'
+      severity: warning
+      resource: storage
+    annotations:
+      description: '{{ $labels.mountpoint }} on {{ $labels.instances }} is predicted
+        to be full in less than 12 hours at the growth rate linearly approximated
+        over the past 8 hours.'
+      summary: '{{ $labels.instance }} mount {{ $labels.mountpoint }} predicted to
+        fill in 12 hours'
+
+  - alert: MemoryUsed
+    # Alert when 95% of the memory is used and less than 16GB free
+    expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.95 and on(instance) node_memory_MemAvailable_bytes < 16e9
+    for: 3m
+    labels:
+      severity: critical
+      notification: page
+    annotations:
+      description: Less than 5% of memory on {{ $labels.instance }} is available.
+      summary: '{{ $labels.instance }} has less than 5% (and 16GB) of memory available (currently
+        {{ $value | humanize1024 }}).'
+
+  - alert: MemoryUsed
+    # Alert when 85% of the memory is used and less than 24GB free
+    expr: (1 - (node_memory_MemAvailable_bytes{alerts_tier="normal"} / node_memory_MemTotal_bytes)) > 0.85  and on(instance) node_memory_MemAvailable_bytes < 24e9
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      description: Less than 15% (and 24GB) of memory on {{ $labels.instance }} is available
+        (currently {{ $value | humanize1024 }}).

@@ -1,0 +1,44 @@
+---
+global:
+  smtp_smarthost: smtp.example.edu:25
+  smtp_from: noreply@wm.edu
+templates:
+- "/etc/alertmanager/*.tmpl"
+
+route:
+  # Send alerts that don't match receivers to nix-default
+  receiver: default
+  group_wait: 10m
+  repeat_interval: 12h
+  group_by:
+  - alertname
+  - cluster
+
+  routes:
+  - receiver: default
+    group_wait: 30m
+    repeat_interval: 12h
+    group_interval: 60m
+    routes:
+    - match:
+        severity: critical
+      group_wait: 1m
+      repeat_interval: 4h
+      receiver: default
+
+receivers:
+- name: default
+  email_configs:
+  - send_resolved: true
+    to: noreply@wm.edu
+
+inhibit_rules:
+# Don't send double alerts for critical and warning alerts
+- source_match:
+    severity: 'critical'
+  target_match:
+    severity: 'warning'
+  equal:
+  - alertname
+  - service
+  - instance
