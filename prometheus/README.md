@@ -10,7 +10,8 @@ The demo below expects to be run on a Linux/Unix machine such as Linux or a Mac.
 
 To get started you'll need to install [Docker](https://docs.docker.com/install/) and
 [Docker Compose](https://docs.docker.com/compose/install/). Switch in to the
-`prometheus/demo` directory, and run `docker-compose up`.
+`prometheus/demo` directory, and run `./start.sh` (creates an insecure folder for
+persistence and starts things).
 
 After everything starts you'll be able to access [Grafana](http://localhost:3000),
 [Prometheus](http://localhost:9090), [Alertmanager](http://localhost:9093), and
