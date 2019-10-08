@@ -1,0 +1,40 @@
+stages:
+  - test
+  - deploy
+
+validate_zones:
+  image: wmit/bind_checker
+  stage: test
+  script:
+    - ./scripts/checkzones.sh
+
+validate_serials:
+  image: wmit/dns-style-check
+  stage: test
+  script:
+    - ./scripts/validate_serial.py *.db
+
+validate_incrementing_serials:
+  image: wmit/dns-style-check
+  stage: test
+  allow_failure: true
+  script:
+    - ./scripts/updated_serial.py $CI_COMMIT_BEFORE_SHA
+
+validate_duplicate_zone_names:
+  image: wmit/dns-style-check
+  stage: test
+  allow_failure: true
+  script:
+    - ./scripts/check_duplicate_zone_name.py *.db
+
+production:
+  image: wmit/ssh-client:alpine
+  stage: deploy
+  environment:
+    name: production
+  script:
+    - eval $(ssh-agent -s)
+    - echo "${SSH_PRIVATE_KEY}" | ssh-add -
+    - ssh deploy@dns1 "cd /var/named/zones; ./scripts/rndc_deploy.sh"
+    - ssh deploy@dns2 "cd /var/named/zones; ./scripts/rndc_deploy.sh"
